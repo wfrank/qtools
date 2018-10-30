@@ -99,7 +99,13 @@ func main() {
 						return
 					}
 					log.Printf("purging reference set: %q, status: %s", name, task.Status)
-					time.Sleep(1 * time.Second)
+					if task.Status != "COMPLETED" {
+						time.Sleep(1 * time.Second)
+					}
+				}
+				if task.Status != "COMPLETED" {
+					log.Fatalf("timeout purging reference set: %q, last status: %v", name, task.Status)
+					return
 				}
 				log.Printf("purged reference set: %q", name)
 			} else {
@@ -134,14 +140,20 @@ func main() {
 				log.Fatalf("error deleting reference set: %v", err)
 				return
 			}
-			for task.Status != "COMPLETED" {
-				time.Sleep(1 * time.Second)
+			for retry := 5; task.Status != "COMPLETED" && retry > 0; retry-- {
 				task, err = qRadar.DeleteReferenceSetTaskStatus(task.ID)
 				if err != nil {
 					log.Fatalf("error polling reference set deleting task status: %v", err)
 					return
 				}
 				log.Printf("deleting reference set: %q, status: %s", name, task.Status)
+				if task.Status != "COMPLETED" {
+					time.Sleep(1 * time.Second)
+				}
+			}
+			if task.Status != "COMPLETED" {
+				log.Fatalf("timeout deleting reference set: %q, last status: %v", name, task.Status)
+				return
 			}
 			log.Printf("deleted reference set: %q", name)
 		}(name)
